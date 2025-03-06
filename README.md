@@ -18,9 +18,12 @@ Oribit is a Parody Social Media Application inspired from Instagram, Reddit, Thr
 
 ## **Tech Stack**
 
-**Front End:** 
+**Front End:**  React Js 
+
 **Backend:** Firebase Firestore  
+
 **IDE:** VS Code 
+
 **Version Control:** Git, GitHub  
 
 ---
