@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "@firebase/auth": "^1.9.1",
+    "@firebase/auth-compat": "^0.5.19",
+    "@firebase/firestore": "^4.7.9",
+    "@firebase/firestore-compat": "^0.3.44",
+    "@firebase/functions": "^0.12.3",
+    "@firebase/functions-compat": "^0.3.20",
+    "@firebase/storage": "^0.13.7",
+    "@firebase/storage-compat": "^0.3.17",
+    "firebase": "^11.4.0"
+  }
+}

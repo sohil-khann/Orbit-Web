@@ -1,0 +1,1 @@
+{"hosting":{"site":"orbit7","public":"orbit-web/build","ignore":["firebase.json","**/.*","**/node_modules/**"],"rewrites":[{"source":"**","destination":"/index.html"}]}}

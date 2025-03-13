@@ -1,0 +1,107 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidUser(userData) {
+      return userData.keys().hasAll(['username', 'email', 'createdAt']) &&
+        userData.username is string &&
+        userData.username.size() >= 3 &&
+        userData.email is string &&
+        userData.email.matches('^[^@]+@[^@]+\\.[^@]+$');
+    }
+
+    function isValidPost(postData) {
+      return postData.keys().hasAll(['title', 'content', 'author', 'createdAt']) &&
+        postData.title is string &&
+        postData.title.size() > 0 &&
+        postData.content is string &&
+        postData.content.size() > 0 &&
+        postData.author.keys().hasAll(['uid', 'username']) &&
+        postData.author.uid == request.auth.uid;
+    }
+
+    function isValidComment(commentData) {
+      return commentData.keys().hasAll(['content', 'author', 'postId', 'createdAt']) &&
+        commentData.content is string &&
+        commentData.content.size() > 0 &&
+        commentData.author.keys().hasAll(['uid', 'username']) &&
+        commentData.author.uid == request.auth.uid &&
+        exists(/databases/$(database)/documents/posts/$(commentData.postId));
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+        request.auth.uid == userId && 
+        isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && 
+        isValidUser(request.resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    // Posts
+    match /posts/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+        isValidPost(request.resource.data);
+      allow update: if isAuthenticated() && (
+        // Author can update everything
+        (resource.data.author.uid == request.auth.uid &&
+         isValidPost(request.resource.data)) ||
+        // Others can only update likes
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likedBy']) &&
+         // Ensure likes count matches likedBy array size
+         request.resource.data.likes == request.resource.data.likedBy.size())
+      );
+      allow delete: if isAuthenticated() && 
+        resource.data.author.uid == request.auth.uid;
+    }
+
+    // Comments
+    match /comments/{commentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+        isValidComment(request.resource.data);
+      allow update: if isAuthenticated() && 
+        resource.data.author.uid == request.auth.uid &&
+        isValidComment(request.resource.data);
+      allow delete: if isAuthenticated() && 
+        resource.data.author.uid == request.auth.uid;
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && 
+        request.resource.data.keys().hasAll(['userId', 'type', 'title', 'message', 'createdAt']) &&
+        // Rate limit: max 10 notifications per minute per user
+        getAfter(/databases/$(database)/documents/notifications)
+          .where('userId', '==', request.resource.data.userId)
+          .where('createdAt', '>', request.time.toMillis() - 60000)
+          .count() < 10;
+      allow update: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid &&
+        // Only allow updating the 'read' field
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+} 
